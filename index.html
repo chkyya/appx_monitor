@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>贱狗感官追踪</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        base: '#161214',
+                        surface: '#241C20',
+                        surface2: '#382B32',
+                        flesh: '#E08A79',
+                        fleshDark: '#A15243',
+                        fleshIntense: '#FF3344',
+                        fluid: '#F4EFEA',
+                        sockYellow: '#D9A84E',
+                        textBase: '#E8DCCB',
+                        warnRed: '#d94545',
+                        safeGreen: '#5c8c5f',
+                    },
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0B0809;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+            color: #E8DCCB;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Nunito', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 430px;
+            height: 100vh;
+            height: 100dvh;
+            max-height: 880px;
+            background-color: #161214;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 70px rgba(224, 138, 121, 0.12);
+        }
+        @media (min-width: 450px) {
+            .app-container {
+                border-radius: 40px;
+                border: 8px solid #0f0a0c;
+                height: 860px;
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .organic-title { font-weight: 800; letter-spacing: 0.05em; color: #F4EFEA; }
+        .organic-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.65rem; color: #A15243; }
+
+        .fluid-blob {
+            width: 190px; height: 190px;
+            background: linear-gradient(135deg, #382B32 0%, #241C20 100%);
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            animation: morph 6s ease-in-out infinite alternate;
+            box-shadow: inset 0 0 40px rgba(224, 138, 121, 0.15), 0 10px 40px rgba(0,0,0,0.6);
+            display: flex; justify-content: center; align-items: center; position: relative;
+            transition: all 0.5s ease;
+        }
+        @keyframes morph {
+            0% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: scale(1) translateY(0); }
+            100% { border-radius: 50% 50% 40% 60% / 60% 40% 70% 40%; transform: scale(1.03) translateY(-5px); }
+        }
+
+        .tab-content { display: none; opacity: 0; transition: opacity 0.25s ease; }
+        .tab-content.active { display: flex; opacity: 1; }
+
+        .visualizer-container {
+            width: 100%; height: 210px; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end; position: relative; margin-bottom: 12px;
+        }
+        .phallus-capsule {
+            width: 76px; height: 200px;
+            background: #241C20;
+            border-radius: 38px 38px 15px 15px;
+            box-shadow: inset 0 10px 20px rgba(255,255,255,0.05), 0 10px 30px rgba(0,0,0,0.5);
+            position: relative; overflow: hidden;
+            border: 2px solid #382B32;
+        }
+        .phallus-fluid {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 10%;
+            background: linear-gradient(to top, #A15243, #E08A79);
+            transition: height 0.1s ease, background 0.3s ease;
+            box-shadow: 0 -10px 20px rgba(224, 138, 121, 0.5);
+        }
+
+        .custom-slider {
+            -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px;
+            background: #382B32; outline: none;
+        }
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #E08A79; cursor: pointer;
+            box-shadow: 0 0 12px rgba(224,138,121,0.6);
+            transition: transform 0.1s;
+        }
+        .custom-slider::-webkit-slider-thumb:active { transform: scale(1.25); }
+
+        #fx-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9999;
+        }
+
+        .chip-btn {
+            background: #241C20; border: 1px solid #382B32; color: #a3958f;
+            padding: 6px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;
+            transition: all 0.2s ease; cursor: pointer;
+        }
+        .chip-btn.selected {
+            background: #382B32; border-color: #E08A79; color: #F4EFEA;
+            box-shadow: 0 0 10px rgba(224, 138, 121, 0.25);
+        }
+
+        .touchpad-2d {
+            width: 100%; height: 130px; background: #241C20;
+            border: 1px solid #382B32; border-radius: 20px;
+            position: relative; overflow: hidden; cursor: crosshair;
+        }
+        .touchpad-handle {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: #E08A79; border: 2px solid #FFFFFF;
+            position: absolute; transform: translate(-50%, -50%);
+            box-shadow: 0 0 12px rgba(224, 138, 121, 0.8);
+            pointer-events: none;
+        }
+
+        .vault-card {
+            position: relative; overflow: hidden; border-radius: 18px;
+            background: #241C20; border: 1px solid #382B32;
+        }
+        .vault-blur-img {
+            filter: blur(14px) brightness(0.7);
+            transition: filter 0.3s ease;
+        }
+        .vault-card.unlocked .vault-blur-img {
+            filter: blur(0px) brightness(1.0);
+        }
+
+        .trend-bar {
+            flex: 1;
+            border-radius: 6px 6px 0 0;
+            background: rgba(224, 138, 121, 0.25);
+            min-height: 8%;
+            transition: height 0.4s ease, background 0.4s ease;
+        }
+        .trend-bar.has-log {
+            background: linear-gradient(to top, rgba(161,82,67,0.5), rgba(224,138,121,0.9));
+        }
+
+        .face-id-icon {
+            width: 64px; height: 64px;
+            border: 2px solid #E08A79;
+            border-radius: 14px;
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .face-id-line {
+            position: absolute; left: 0; right: 0; height: 2px;
+            background: #E08A79;
+            box-shadow: 0 0 10px #E08A79;
+            animation: scanLine 2s infinite;
+        }
+        @keyframes scanLine { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+
+        .target-zone-pulse {
+            position: absolute; top: 38px; width: 30px; height: 30px;
+            background: rgba(92, 140, 95, 0.5); border-radius: 50%;
+            box-shadow: 0 0 15px #5c8c5f;
+            animation: pulseSafe 1.5s infinite; z-index: 10;
+        }
+        .danger-zone-glow {
+            position: absolute; top: 92px; width: 90px; height: 20px;
+            background: rgba(217, 69, 69, 0.4); border-radius: 50%;
+            box-shadow: 0 0 20px #d94545;
+            animation: pulseDanger 2s infinite; z-index: 10;
+        }
+        @keyframes pulseSafe { 0% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.7; } }
+        @keyframes pulseDanger { 0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
+
+        .control-dot {
+            width: 22px; height: 22px; border-radius: 50%;
+            opacity: 0.35; cursor: pointer; border: 2px solid transparent;
+            transition: 0.2s;
+        }
+        .control-dot.selected { opacity: 1; transform: scale(1.15); border-color: #F4EFEA; }
+
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #5c8c5f; }
+        .status-dot.off { background: #444; }
+        .status-dot.warn { background: #d94545; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fluid-blob, .face-id-line, .target-zone-pulse, .danger-zone-glow { animation: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <canvas id="fx-canvas"></canvas>
+
+    <header class="pt-10 pb-4 px-7 flex justify-between items-center z-10 w-full bg-base border-b border-surface/60">
+        <div>
+            <h1 class="organic-title text-xl" id="header-title">贱狗状态看板</h1>
+            <p class="text-[9px] text-fleshDark font-semibold tracking-wider" id="header-sub">贱狗感官追踪 · 公狗发情日志</p>
+        </div>
+        <button type="button" id="header-camo-btn" class="w-10 h-10 rounded-2xl bg-surface border border-surface2 flex items-center justify-center text-flesh shadow-inner" aria-label="设置">
+            <i class="fa-solid fa-droplet text-sm" id="header-icon"></i>
+        </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto no-scrollbar px-6 relative w-full pb-28">
+
+        <!-- DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content active flex-col items-center pt-6">
+            <div class="fluid-blob mt-2" id="accumulation-blob">
+                <div class="flex flex-col items-center z-10 pointer-events-none">
+                    <span class="text-4xl font-light text-flesh drop-shadow-md" id="blob-days">4.2</span>
+                    <span class="organic-label mt-1" id="blob-label">天未排空狗精</span>
+                </div>
+            </div>
+
+            <div class="w-full flex justify-between mt-8 bg-surface rounded-[28px] p-5 border border-surface2 shadow-lg">
+                <div class="flex flex-col items-center w-1/2 border-r border-surface2">
+                    <span class="organic-label">发情充盈</span>
+                    <div class="flex items-baseline mt-1 gap-1">
+                        <span class="text-2xl text-fluid font-bold" id="dash-fill-val">82</span><span class="text-xs text-gray-500">%</span>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center w-1/2">
+                    <span class="organic-label">狗鸡巴耐受</span>
+                    <div class="flex items-baseline mt-1 gap-1">
+                        <span class="text-2xl text-flesh font-bold" id="dash-sensitivity-val">6.5</span><span class="text-xs text-gray-500">/10</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full mt-6 bg-surface rounded-[28px] p-5 border border-surface2">
+                <h3 class="organic-label mb-4">近期公狗状态趋势</h3>
+                <div id="trend-chart" class="h-24 flex items-end gap-2 border-b border-white/10 pb-1"></div>
+                <div class="flex justify-between text-[10px] text-gray-500 mt-2">
+                    <span id="trend-left-label">5天前 (憋精)</span>
+                    <span id="trend-right-label">今日 (发情)</span>
+                </div>
+            </div>
+
+            <div class="mt-8 w-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="organic-label">近期公狗记录</h3>
+                    <button type="button" class="text-xs text-fleshDark" onclick="clearLogs()">清空历史</button>
+                </div>
+                <div id="recent-logs-list" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+
+        <!-- LOG -->
+        <div id="tab-log" class="tab-content flex-col items-center pt-4">
+            <p class="text-xs text-gray-400 text-center mb-3">记录狗鸡巴状态 · 滑动发情充血度</p>
+
+            <div class="visualizer-container">
+                <div class="phallus-capsule" id="visualizer-capsule">
+                    <div class="phallus-fluid" id="visualizer-fluid"></div>
+                </div>
+            </div>
+
+            <div class="w-full px-2 mt-1">
+                <div class="flex justify-between px-2 mb-2">
+                    <span class="text-xs text-gray-500">平稳</span>
+                    <span class="text-xs font-bold" id="arousal-val" style="color: #E08A79;">20%</span>
+                    <span class="text-xs text-fleshIntense">临界射精</span>
+                </div>
+                <input type="range" min="1" max="100" value="20" class="custom-slider" id="arousal-slider" aria-label="发情勃起充血度">
+            </div>
+
+            <div class="w-full mt-5">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="organic-label">发情勃起时长</label>
+                    <span class="text-xs font-bold text-flesh" id="duration-val">5 min</span>
+                </div>
+                <input type="range" min="1" max="60" value="5" class="custom-slider" id="duration-slider" aria-label="发情勃起时长">
+            </div>
+
+            <div class="w-full mt-5">
+                <label class="organic-label mb-2 block">射狗精方式</label>
+                <div class="grid grid-cols-3 gap-2" id="log-method-chips">
+                    <button type="button" class="chip-btn selected" data-method="伴侣行为">伴侣</button>
+                    <button type="button" class="chip-btn" data-method="自慰">自慰</button>
+                    <button type="button" class="chip-btn" data-method="脏袜摩擦狗鸡巴">脏袜摩擦</button>
+                    <button type="button" class="chip-btn" data-method="闻袜射狗精">闻袜射精</button>
+                    <button type="button" class="chip-btn" data-method="公狗潮吹">公狗潮吹</button>
+                    <button type="button" class="chip-btn" data-method="梦遗">梦遗</button>
+                </div>
+            </div>
+
+            <div class="w-full mt-5">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="organic-label">射狗精量 与 粘稠度</label>
+                    <span class="text-[10px] text-sockYellow font-bold" id="matrix-status-text">普通狗精 • 乳白</span>
+                </div>
+                <div class="touchpad-2d" id="matrix-touchpad">
+                    <div class="absolute inset-0 flex flex-col justify-between p-2 pointer-events-none text-[9px] text-gray-600">
+                        <div class="flex justify-between"><span>公狗洪流</span><span>骚黄/异常</span></div>
+                        <div class="flex justify-between"><span>可怜的几滴</span><span>清水透明</span></div>
+                    </div>
+                    <div class="touchpad-handle" id="matrix-handle" style="left: 50%; top: 50%;"></div>
+                </div>
+            </div>
+
+            <div class="w-full mt-5">
+                <label class="organic-label mb-3 block">发情控制力</label>
+                <div class="flex justify-between px-6 items-center" id="control-dots">
+                    <button type="button" class="control-dot" data-control="失控" style="background:#d94545;" aria-label="失控"></button>
+                    <button type="button" class="control-dot selected" data-control="一般" style="background:#d4b275;" aria-label="一般"></button>
+                    <button type="button" class="control-dot" data-control="高掌控" style="background:#5c8c5f;" aria-label="高掌控"></button>
+                </div>
+                <div class="flex justify-between px-4 mt-2 text-[10px] text-gray-500">
+                    <span>失控早泄</span><span>一般</span><span>高掌控</span>
+                </div>
+            </div>
+
+            <div class="w-full mt-6">
+                <button type="button" onclick="triggerLogRelease()" class="w-full py-4 rounded-[24px] text-sm font-bold text-white bg-gradient-to-r from-fleshDark to-flesh active:scale-95 transition-transform shadow-[0_10px_25px_rgba(224,138,121,0.3)]">
+                    喷射狗精 &amp; 存档
+                </button>
+            </div>
+        </div>
+
+        <!-- VAULT -->
+        <div id="tab-vault" class="tab-content flex-col pt-4 relative min-h-[420px]">
+            <div id="vault-lock" class="absolute inset-0 z-10 bg-base flex flex-col justify-center items-center px-6 text-center">
+                <div class="face-id-icon"><div class="face-id-line"></div></div>
+                <p class="text-sm text-gray-400 mb-4">识别贱狗面容以解锁主人的私密图库…</p>
+                <button type="button" onclick="unlockVault()" class="px-4 py-2 rounded-xl bg-surface2 text-flesh text-xs font-bold border border-flesh/30">
+                    <i class="fa-solid fa-lock mr-1"></i> Face ID 解锁（模拟）
+                </button>
+            </div>
+
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="organic-label">主人的私密图库</h3>
+                    <p class="text-[10px] text-gray-500">本地沙盒 · 锁仅作界面模拟</p>
+                </div>
+                <button type="button" id="vault-lock-btn" onclick="lockVault()" class="px-3 py-1.5 rounded-xl bg-surface2 text-flesh text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock-open"></i> 重新上锁
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3" id="vault-grid">
+                <div class="vault-card aspect-square relative flex items-center justify-center">
+                    <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover vault-blur-img" alt="">
+                    <div class="absolute bottom-2 left-2 right-2 bg-base/80 backdrop-blur-md rounded-xl p-1.5 text-[9px] text-gray-300 flex justify-between">
+                        <span>3.2ml · 骚黄</span>
+                    </div>
+                </div>
+                <div class="vault-card aspect-square relative flex items-center justify-center">
+                    <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover vault-blur-img" alt="">
+                    <div class="absolute bottom-2 left-2 right-2 bg-base/80 backdrop-blur-md rounded-xl p-1.5 text-[9px] text-gray-300 flex justify-between">
+                        <span>2.1ml · 奶白</span>
+                    </div>
+                </div>
+                <div class="vault-card aspect-square relative flex items-center justify-center bg-surface2">
+                    <div class="absolute bottom-2 left-2 right-2 bg-base/80 backdrop-blur-md rounded-xl p-1.5 text-[9px] text-flesh flex justify-between">
+                        <span>4.5ml · 清水</span>
+                    </div>
+                </div>
+                <div class="vault-card aspect-square relative flex items-center justify-center bg-[#2a2a2c]">
+                    <div class="absolute bottom-2 left-2 right-2 bg-base/80 backdrop-blur-md rounded-xl p-1.5 text-[9px] text-flesh flex justify-between">
+                        <span>1.5ml · 浓重狗精</span>
+                    </div>
+                </div>
+                <div class="vault-card aspect-square relative flex items-center justify-center bg-surface2">
+                    <div class="absolute bottom-2 left-2 right-2 bg-base/80 backdrop-blur-md rounded-xl p-1.5 text-[9px] text-flesh flex justify-between">
+                        <span>2.8ml · 白</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRAINING -->
+        <div id="tab-training" class="tab-content flex-col gap-4 pt-4 w-full">
+            <h3 class="organic-label px-1">贱狗训练计划</h3>
+
+            <div class="w-full rounded-[28px] bg-gradient-to-br from-[#2c1d22] via-[#241c20] to-[#161214] border border-flesh/40 p-6 cursor-pointer active:scale-[0.98] transition-transform shadow-xl relative overflow-hidden" onclick="openFrictionSetup()">
+                <div class="absolute top-0 right-0 w-36 h-36 bg-flesh/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                <div class="flex items-center gap-4 mb-3 relative z-10">
+                    <div class="w-12 h-12 rounded-2xl bg-base border border-flesh/40 flex items-center justify-center text-flesh shadow-inner">
+                        <i class="fa-solid fa-socks text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base font-extrabold text-fluid leading-tight">脏袜摩擦狗鸡巴</h3>
+                            <span class="bg-flesh/20 text-flesh text-[9px] font-bold px-2 py-0.5 rounded-full border border-flesh/30">CORE</span>
+                        </div>
+                        <p class="text-[10px] text-sockYellow tracking-wider uppercase mt-1">敏感狗龟头 / 发情狗冠状沟</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mb-4 relative z-10 leading-relaxed">
+                    介质：脏白色精英袜。按 BPM 摩擦狗鸡巴，结合汗味与材质，做脱敏与射精控制。
+                </p>
+                <div class="flex items-center justify-between text-xs text-gray-400 border-t border-surface2/60 pt-3">
+                    <span><i class="fa-solid fa-sliders text-sockYellow mr-1"></i> 30-180 BPM 摩擦狗鸡巴频率</span>
+                    <span class="text-flesh font-bold">配置与开始 <i class="fa-solid fa-arrow-right text-xs ml-1"></i></span>
+                </div>
+            </div>
+
+            <div class="w-full rounded-[28px] bg-surface border border-surface2 p-5 cursor-pointer active:scale-[0.98] transition-transform" onclick="openScentModal()">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-xl bg-base border border-surface2 flex items-center justify-center text-sockYellow">
+                        <i class="fa-solid fa-wind text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-fluid">闻袜射狗精</h3>
+                        <p class="text-[10px] text-gray-500">公狗呼吸与感官诱导</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400">深呼吸提取脏袜子的气味分子，将嗅觉刺激与狗鸡巴勃起反射建立神经链。</p>
+            </div>
+
+            <div class="w-full rounded-[28px] bg-surface border border-fleshIntense/20 p-5 cursor-pointer active:scale-[0.98] transition-transform" onclick="openSquirtModal()">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-xl bg-base border border-fleshIntense/40 flex items-center justify-center text-fleshIntense">
+                        <i class="fa-solid fa-droplet text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-fluid">公狗潮吹技巧</h3>
+                        <p class="text-[10px] text-gray-500">40字心法 · 内松外硬</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400">水量充足，尿意正浓。绿区找感觉，红区避开发情狗冠状沟。</p>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="tab-settings" class="tab-content flex-col pt-4 w-full">
+            <h3 class="organic-label mb-4">贱狗设置</h3>
+            <div class="bg-surface rounded-[28px] p-2 border border-surface2">
+                <button type="button" class="w-full flex justify-between items-center px-4 py-4 border-b border-white/5 text-sm" onclick="toggleSetting('camouflage')">
+                    <span>幽灵伪装模式</span>
+                    <div class="status-dot" id="set-camouflage"></div>
+                </button>
+                <div class="w-full flex justify-between items-center px-4 py-4 border-b border-white/5 text-sm">
+                    <span>贱狗数据本地存档</span>
+                    <div class="status-dot"></div>
+                </div>
+                <button type="button" class="w-full flex justify-between items-center px-4 py-4 text-sm" onclick="toggleSetting('burn')">
+                    <span>贱狗记录阅后即焚 (30天)</span>
+                    <div class="status-dot" id="set-burn"></div>
+                </button>
+            </div>
+            <p class="text-[10px] text-gray-500 mt-3 px-1">加密与 Face ID 均为界面模拟。记录保存在本机浏览器 localStorage。</p>
+        </div>
+    </main>
+
+    <nav class="absolute bottom-0 w-full bg-gradient-to-t from-base via-base to-transparent flex items-center justify-around z-20 pb-5 pt-3 px-2 border-t border-surface2/40">
+        <button type="button" class="nav-item flex flex-col items-center gap-1 w-14 text-flesh transition-colors" data-target="tab-dashboard" data-title="贱狗状态看板">
+            <i class="fa-solid fa-chart-pie text-base"></i>
+            <span class="text-[10px] font-bold">看板</span>
+        </button>
+        <button type="button" class="nav-item flex flex-col items-center gap-1 w-14 text-gray-600 transition-colors" data-target="tab-log" data-title="记录狗鸡巴状态">
+            <i class="fa-solid fa-plus-circle text-base"></i>
+            <span class="text-[10px] font-bold">记录</span>
+        </button>
+        <button type="button" class="nav-item flex flex-col items-center gap-1 w-14 text-gray-600 transition-colors" data-target="tab-vault" data-title="主人的私密图库">
+            <i class="fa-solid fa-vault text-base"></i>
+            <span class="text-[10px] font-bold">私密</span>
+        </button>
+        <button type="button" class="nav-item flex flex-col items-center gap-1 w-14 text-gray-600 transition-colors" data-target="tab-training" data-title="贱狗训练计划">
+            <i class="fa-solid fa-fire text-base"></i>
+            <span class="text-[10px] font-bold">训练</span>
+        </button>
+        <button type="button" class="nav-item flex flex-col items-center gap-1 w-14 text-gray-600 transition-colors" data-target="tab-settings" data-title="贱狗设置">
+            <i class="fa-solid fa-gear text-base"></i>
+            <span class="text-[10px] font-bold">设置</span>
+        </button>
+    </nav>
+
+    <!-- FRICTION CONFIG -->
+    <div id="friction-config-modal" class="absolute inset-0 z-50 bg-base hidden flex-col justify-between py-6 px-6 opacity-0 transition-opacity duration-300 overflow-y-auto no-scrollbar">
+        <div>
+            <div class="flex justify-between items-center mb-5 pt-2">
+                <button type="button" onclick="closeFrictionSetup()" class="w-9 h-9 rounded-full bg-surface border border-surface2 flex items-center justify-center text-gray-400 active:scale-90" aria-label="关闭">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="text-center">
+                    <h2 class="text-sm font-bold text-fluid">脏袜摩擦狗鸡巴 · 参数</h2>
+                    <span class="text-[9px] text-fleshDark">SOCK PROFILE &amp; 狗鸡巴靶区</span>
+                </div>
+                <div class="w-9 h-9"></div>
+            </div>
+
+            <div class="bg-surface rounded-2xl p-4 border border-surface2 mb-4 space-y-4">
+                <div class="flex items-center gap-2 border-b border-surface2 pb-2">
+                    <i class="fa-solid fa-socks text-sockYellow text-xs"></i>
+                    <span class="organic-label text-sockYellow">1. 脏袜类型</span>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-2 font-semibold">品牌</label>
+                    <div class="flex flex-wrap gap-2" id="brand-chips">
+                        <button type="button" class="chip-btn selected" onclick="selectConfig('brand', 'Nike')">Nike</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('brand', 'Adidas')">Adidas</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('brand', 'Uniqlo')">Uniqlo</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('brand', 'Stance')">Stance</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('brand', '无标')">无标</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-2 font-semibold">袜子颜色</label>
+                    <div class="flex flex-wrap gap-2" id="color-chips">
+                        <button type="button" class="chip-btn selected" onclick="selectConfig('color', '脏白精英袜')">脏白精英袜</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('color', '脏黑袜')">脏黑袜 (汗湿)</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('color', '白袜')">白袜 (3天)</button>
+                        <button type="button" class="chip-btn" onclick="selectConfig('color', '发黄污渍袜')">发黄污渍袜</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs text-gray-400 font-semibold">穿著天数</label>
+                        <span class="text-xs font-bold text-sockYellow" id="days-worn-label">3 天</span>
+                    </div>
+                    <input type="range" min="1" max="7" value="3" class="custom-slider" id="days-worn-slider" oninput="updateConfigLabels()">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs text-gray-400 font-semibold">气味浓度</label>
+                        <span class="text-xs font-bold text-flesh" id="scent-level-label">Level 7/10</span>
+                    </div>
+                    <input type="range" min="1" max="10" value="7" class="custom-slider" id="scent-slider" oninput="updateConfigLabels()">
+                </div>
+            </div>
+
+            <div class="bg-surface rounded-2xl p-4 border border-surface2 space-y-4">
+                <div class="flex items-center gap-2 border-b border-surface2 pb-2">
+                    <i class="fa-solid fa-bullseye text-flesh text-xs"></i>
+                    <span class="organic-label text-flesh">2. 狗鸡巴敏感区</span>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs text-gray-400 font-semibold">初始敏感度</label>
+                        <span class="text-xs font-bold text-fleshIntense" id="sens-rating-label">8/10 (高敏感)</span>
+                    </div>
+                    <input type="range" min="1" max="10" value="8" class="custom-slider" id="sens-rating-slider" oninput="updateConfigLabels()">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-2 font-semibold">摩擦重点</label>
+                    <div class="grid grid-cols-3 gap-2" id="target-zone-chips">
+                        <button type="button" class="chip-btn text-center py-2 text-[11px] selected" onclick="selectConfig('targetZone', 'Glans Tip 敏感狗龟头')">敏感狗龟头</button>
+                        <button type="button" class="chip-btn text-center py-2 text-[11px]" onclick="selectConfig('targetZone', 'Coronal Sulcus 发情狗冠状沟')">发情狗冠状沟</button>
+                        <button type="button" class="chip-btn text-center py-2 text-[11px]" onclick="selectConfig('targetZone', 'Full Shaft 阴茎体')">全阴茎体</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-4">
+            <button type="button" onclick="startFrictionSession()" class="w-full py-4 rounded-[24px] text-sm font-extrabold text-white bg-gradient-to-r from-fleshDark via-flesh to-sockYellow active:scale-95 transition-transform shadow-lg">
+                进入动态摩擦 HUD <i class="fa-solid fa-play ml-1 text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- FRICTION HUD -->
+    <div id="friction-active-overlay" class="absolute inset-0 z-50 bg-[#0c090a] hidden flex-col justify-between py-6 px-5 opacity-0 transition-opacity duration-300">
+        <div class="flex justify-between items-center border-b border-surface2/60 pb-3">
+            <button type="button" onclick="abortSession()" class="text-xs text-gray-500">
+                <i class="fa-solid fa-chevron-left mr-1"></i> 中止
+            </button>
+            <div class="text-center">
+                <span class="text-xs font-bold text-fluid block" id="hud-timer">00:00</span>
+                <span class="text-[9px] text-fleshDark uppercase tracking-widest">脏袜摩擦狗鸡巴</span>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] text-sockYellow font-bold block" id="hud-sock-info">Nike 脏白精英袜</span>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col justify-center items-center relative my-2">
+            <div class="w-full h-[330px] bg-surface/50 rounded-[32px] border border-surface2/80 relative overflow-hidden flex items-center justify-center shadow-inner">
+                <canvas id="anatomy-canvas" class="w-full h-full"></canvas>
+                <div class="absolute top-3 left-3 bg-base/80 backdrop-blur-md rounded-xl px-2.5 py-1 border border-surface2 text-[10px]">
+                    <span class="text-gray-400">摩擦次数:</span>
+                    <span class="text-flesh font-bold ml-1 text-xs" id="hud-stroke-counter">0</span>
+                </div>
+                <div class="absolute top-3 right-3 bg-base/80 backdrop-blur-md rounded-xl px-2.5 py-1 border border-surface2 text-[10px]">
+                    <span class="text-sockYellow font-bold text-xs" id="hud-bpm-badge">75 BPM</span>
+                </div>
+            </div>
+
+            <div class="w-full bg-surface/80 rounded-2xl p-3 border border-surface2 mt-3">
+                <div class="flex justify-between items-center mb-1.5">
+                    <span class="text-xs text-gray-300 font-semibold"><i class="fa-solid fa-gauge-high text-sockYellow mr-1"></i> 摩擦狗鸡巴频率</span>
+                    <span class="text-xs font-bold text-sockYellow" id="hud-bpm-text">75 BPM (中速)</span>
+                </div>
+                <input type="range" min="30" max="180" value="75" step="5" class="custom-slider" id="friction-bpm-slider" oninput="updateFrictionTempo()">
+                <div class="flex justify-between text-[9px] text-gray-500 mt-1">
+                    <span>30 慢速</span>
+                    <span>90 中速</span>
+                    <span>180 高频</span>
+                </div>
+            </div>
+
+            <div class="w-full flex items-center justify-between gap-3 mt-2">
+                <button type="button" onclick="adjustLiveSens(-1)" class="flex-1 py-2 rounded-xl bg-surface2 text-fluid text-xs font-bold active:scale-95 border border-surface">
+                    - 敏感度降低
+                </button>
+                <div class="text-center px-2">
+                    <span class="text-[9px] text-gray-500 block">实时反应</span>
+                    <span class="text-xs font-bold text-fleshIntense" id="hud-live-sens-num">8/10</span>
+                </div>
+                <button type="button" onclick="adjustLiveSens(+1)" class="flex-1 py-2 rounded-xl bg-fleshDark text-fluid text-xs font-bold active:scale-95">
+                    + 接近临界点
+                </button>
+            </div>
+        </div>
+
+        <div class="space-y-2 pt-1">
+            <button type="button" onclick="completeFrictionSession()" class="w-full py-3.5 rounded-[22px] text-sm font-extrabold text-white bg-gradient-to-r from-fleshDark to-flesh active:scale-95 transition-transform shadow-lg">
+                完成脱敏训练 (保存数据)
+            </button>
+            <button type="button" onclick="triggerFrictionRelease()" class="w-full py-2.5 rounded-[20px] text-xs font-bold text-fleshIntense bg-surface border border-fleshIntense/30 active:scale-95">
+                喷射狗精 (Burst Release)
+            </button>
+        </div>
+    </div>
+
+    <!-- SCENT MODAL -->
+    <div id="scent-modal" class="absolute inset-0 z-50 bg-base hidden flex-col justify-between py-8 px-6">
+        <div class="flex justify-between items-center border-b border-surface2 pb-3">
+            <button type="button" onclick="closeScentModal()" class="text-xs text-gray-400">关闭</button>
+            <h3 class="text-sm font-bold text-fluid">闻袜射狗精</h3>
+            <div class="w-8"></div>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center text-center px-4">
+            <div class="w-32 h-32 rounded-full border-4 border-sockYellow/40 flex items-center justify-center mb-6 relative">
+                <i class="fa-solid fa-wind text-4xl text-sockYellow animate-pulse"></i>
+            </div>
+            <p class="text-sm text-fluid font-bold mb-2">公狗呼吸与感官诱导</p>
+            <p class="text-xs text-gray-400 leading-relaxed mb-6">
+                深呼吸提取脏袜子的气味分子，将嗅觉刺激与狗鸡巴勃起反射建立神经链。<br>
+                吸气 4 秒 ➔ 屏息 4 秒 ➔ 缓慢呼气 6 秒
+            </p>
+            <div class="flex gap-3">
+                <div class="w-20 h-20 rounded-2xl bg-surface border border-surface2 flex items-center justify-center text-[10px] text-gray-400">白袜 (3天)</div>
+                <div class="w-20 h-20 rounded-2xl bg-surface border border-flesh flex items-center justify-center text-[10px] text-flesh">黑袜 (汗湿)</div>
+            </div>
+        </div>
+        <button type="button" onclick="saveScentSession()" class="w-full py-3.5 rounded-2xl bg-surface2 text-fluid text-xs font-bold">
+            结束并记入看板
+        </button>
+    </div>
+
+    <!-- SQUIRT MODAL -->
+    <div id="squirt-modal" class="absolute inset-0 z-50 bg-base hidden flex-col py-8 px-6 overflow-y-auto no-scrollbar">
+        <div class="flex justify-between items-center border-b border-surface2 pb-3 mb-4">
+            <button type="button" onclick="closeSquirtModal()" class="text-xs text-gray-400">关闭</button>
+            <h3 class="text-sm font-bold text-fluid">公狗潮吹技巧</h3>
+            <div class="w-8"></div>
+        </div>
+
+        <div class="w-full h-[220px] bg-[#121214] rounded-[20px] border border-white/5 relative flex justify-center items-center mb-4">
+            <svg viewBox="0 0 120 180" width="120" height="180" style="z-index:1;">
+                <path d="M40 180 L 40 90 Q 40 70 60 70 Q 80 70 80 90 L 80 180 Z" fill="#c48a78"/>
+                <path d="M30 95 Q 60 50 90 95 Q 100 110 85 115 Q 60 100 35 115 Q 20 110 30 95 Z" fill="#d99784"/>
+                <path d="M60 60 L 60 75" stroke="#9e6250" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <div class="target-zone-pulse"></div>
+            <div class="danger-zone-glow"></div>
+        </div>
+
+        <div class="bg-surface rounded-2xl p-4 border border-surface2 mb-4">
+            <h4 class="organic-label mb-2">公狗潮吹40字心法</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">
+                “水量充足，尿意正浓，润滑充分，内松外硬，寻找感觉，酥麻不断，尿意继续，保持放松，极限难耐，喷涌而出。”
+            </p>
+        </div>
+
+        <div class="bg-surface rounded-2xl p-4 border border-surface2 mb-4" id="squirt-checks">
+            <button type="button" class="squirt-check w-full flex justify-between items-center py-3 border-b border-white/5 text-xs text-left" data-on="1">
+                <span>公狗膀胱蓄水度 (极度尿急)</span><div class="status-dot"></div>
+            </button>
+            <button type="button" class="squirt-check w-full flex justify-between items-center py-3 border-b border-white/5 text-xs text-left" data-on="1">
+                <span>发情勃起硬度 (≥90%)</span><div class="status-dot"></div>
+            </button>
+            <button type="button" class="squirt-check w-full flex justify-between items-center py-3 border-b border-white/5 text-xs text-left" data-on="1">
+                <span>狗鸡巴高粘稠润滑 (如云泥沙)</span><div class="status-dot"></div>
+            </button>
+            <button type="button" class="squirt-check w-full flex justify-between items-center py-3 text-xs text-left" data-on="0">
+                <span>狗冠状沟避让：严禁触碰边缘，防止贱狗早泄失败。</span><div class="status-dot warn"></div>
+            </button>
+        </div>
+
+        <button type="button" id="breathe-brake-btn" onclick="triggerBrake()" class="w-full py-3 rounded-xl border border-[#d94545] text-[#d94545] text-xs font-bold bg-[rgba(217,69,69,0.1)]">
+            紧急刹车！深呼吸保持公狗内松外硬
+        </button>
+        <button type="button" onclick="saveSquirtSession()" class="w-full mt-3 py-3.5 rounded-2xl bg-gradient-to-r from-fleshDark to-flesh text-white text-xs font-bold">
+            喷涌记录存档
+        </button>
+    </div>
+</div>
+
+<script>
+    const STORAGE_LOGS = 'sensual_logs_v3';
+    const STORAGE_SET = 'sensual_settings_v3';
+    const DAY_MS = 86400000;
+    const VOLUME_LABELS = ['可怜的几滴', '劣质稀薄', '普通狗精', '浓厚狗精', '公狗洪流'];
+
+    function seedLogs() {
+        const now = Date.now();
+        return [
+            { id: 1, title: '脏袜摩擦狗鸡巴', ts: now - 4.2 * DAY_MS, date: '', duration: '12 mins', brand: 'Nike', color: '脏白精英袜', days: 3, startSens: 8, endSens: 5, mode: '脏袜摩擦狗鸡巴', control: '高掌控', volumeLabel: '普通狗精', appearance: '乳白' },
+            { id: 2, title: '闻袜射狗精', ts: now - 5.1 * DAY_MS, date: '', duration: '8 mins', mode: '闻袜射狗精', control: '一般', volumeLabel: '浓厚狗精', appearance: '奶白' },
+            { id: 3, title: '喷射狗精 & 存档', ts: now - 6.4 * DAY_MS, date: '', duration: '18 mins', mode: '伴侣行为', control: '一般', volumeLabel: '公狗洪流', appearance: '乳白' }
+        ].map(l => ({ ...l, date: new Date(l.ts).toISOString().split('T')[0] }));
+    }
+
+    let appData = {
+        logs: JSON.parse(localStorage.getItem(STORAGE_LOGS) || 'null') || seedLogs(),
+        settings: Object.assign({ camouflage: false, burn: true }, JSON.parse(localStorage.getItem(STORAGE_SET) || '{}')),
+        config: {
+            brand: 'Nike',
+            color: '脏白精英袜',
+            daysWorn: 3,
+            scentLevel: 7,
+            startSens: 8,
+            targetZone: 'Glans Tip 敏感狗龟头',
+            bpm: 75
+        },
+        selectedMethod: '伴侣行为',
+        selectedControl: '一般',
+        matrix: { x: 0.5, y: 0.5 },
+        isVaultUnlocked: false
+    };
+
+    function persistLogs() {
+        localStorage.setItem(STORAGE_LOGS, JSON.stringify(appData.logs));
+    }
+    function persistSettings() {
+        localStorage.setItem(STORAGE_SET, JSON.stringify(appData.settings));
+    }
+
+    function pruneIfNeeded() {
+        if (!appData.settings.burn) return;
+        const cutoff = Date.now() - 30 * DAY_MS;
+        const next = appData.logs.filter(l => (l.ts || Date.parse(l.date)) >= cutoff);
+        if (next.length !== appData.logs.length) {
+            appData.logs = next;
+            persistLogs();
+        }
+    }
+
+    function volumeFromMatrix() {
+        const idx = Math.round((1 - appData.matrix.y) * 4);
+        return VOLUME_LABELS[Math.max(0, Math.min(4, idx))];
+    }
+    function appearanceFromMatrix() {
+        const x = appData.matrix.x;
+        if (x < 0.3) return '清水透明';
+        if (x > 0.7) return '骚黄/异常';
+        return '乳白';
+    }
+
+    function daysSinceLastRelease() {
+        if (!appData.logs.length) return null;
+        const last = Math.max(...appData.logs.map(l => l.ts || Date.parse(l.date) || 0));
+        return (Date.now() - last) / DAY_MS;
+    }
+
+    function fillPercent(days) {
+        if (days == null) return 0;
+        return Math.max(8, Math.min(100, Math.round((days / 7) * 100)));
+    }
+
+    function goTab(targetId) {
+        const item = document.querySelector(`.nav-item[data-target="${targetId}"]`);
+        if (item) item.click();
+    }
+
+    const navItems = document.querySelectorAll('.nav-item');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const headerTitle = document.getElementById('header-title');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            navItems.forEach(nav => {
+                nav.classList.remove('text-flesh');
+                nav.classList.add('text-gray-600');
+            });
+            item.classList.add('text-flesh');
+            item.classList.remove('text-gray-600');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+            document.getElementById(item.getAttribute('data-target')).classList.add('active');
+            applyHeader();
+            headerTitle.innerText = appData.settings.camouflage ? '备忘录' : item.getAttribute('data-title');
+        });
+    });
+
+    document.getElementById('header-camo-btn').addEventListener('click', () => goTab('tab-settings'));
+
+    function applyHeader() {
+        const camo = appData.settings.camouflage;
+        document.title = camo ? '备忘录' : '贱狗感官追踪';
+        document.getElementById('header-sub').innerText = camo ? 'NOTES' : '贱狗感官追踪 · 公狗发情日志';
+        document.getElementById('header-icon').className = camo ? 'fa-solid fa-note-sticky text-sm' : 'fa-solid fa-droplet text-sm';
+        document.getElementById('set-camouflage').className = 'status-dot' + (camo ? '' : ' off');
+        document.getElementById('set-burn').className = 'status-dot' + (appData.settings.burn ? '' : ' off');
+        const activeNav = document.querySelector('.nav-item.text-flesh');
+        if (activeNav) headerTitle.innerText = camo ? '备忘录' : activeNav.getAttribute('data-title');
+    }
+
+    function toggleSetting(key) {
+        appData.settings[key] = !appData.settings[key];
+        persistSettings();
+        if (key === 'burn') pruneIfNeeded();
+        applyHeader();
+        renderDashboard();
+    }
+
+    function renderDashboard() {
+        pruneIfNeeded();
+        const days = daysSinceLastRelease();
+        const blobDays = document.getElementById('blob-days');
+        const blobLabel = document.getElementById('blob-label');
+        if (days == null) {
+            blobDays.innerText = '—';
+            blobLabel.innerText = '尚无排空记录';
+            document.getElementById('dash-fill-val').innerText = '0';
+        } else {
+            blobDays.innerText = days.toFixed(1);
+            blobLabel.innerText = '天未排空狗精';
+            document.getElementById('dash-fill-val').innerText = String(fillPercent(days));
+        }
+
+        const blob = document.getElementById('accumulation-blob');
+        const fill = fillPercent(days);
+        blob.style.boxShadow = `inset 0 0 ${20 + fill / 3}px rgba(224, 138, 121, ${0.12 + fill / 400}), 0 10px 40px rgba(0,0,0,0.6)`;
+
+        const sensLogs = appData.logs.filter(l => l.endSens);
+        if (sensLogs.length > 0) {
+            const avg = (sensLogs.reduce((acc, curr) => acc + curr.endSens, 0) / sensLogs.length).toFixed(1);
+            document.getElementById('dash-sensitivity-val').innerText = avg;
+        }
+
+        const chart = document.getElementById('trend-chart');
+        chart.innerHTML = '';
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        for (let i = 4; i >= 0; i--) {
+            const dayStart = today.getTime() - i * DAY_MS;
+            const dayEnd = dayStart + DAY_MS;
+            const dayLogs = appData.logs.filter(l => {
+                const t = l.ts || Date.parse(l.date);
+                return t >= dayStart && t < dayEnd;
+            });
+            const bar = document.createElement('div');
+            bar.className = 'trend-bar' + (dayLogs.length ? ' has-log' : '');
+            let h = 18;
+            if (dayLogs.length) {
+                const volIdx = dayLogs.reduce((m, l) => Math.max(m, VOLUME_LABELS.indexOf(l.volumeLabel || '')), 2);
+                h = 28 + (Math.max(volIdx, 0) + dayLogs.length) * 12;
+            }
+            bar.style.height = Math.min(100, h) + '%';
+            bar.title = new Date(dayStart).toLocaleDateString('zh-CN') + (dayLogs.length ? ' 发情' : ' 憋精');
+            chart.appendChild(bar);
+        }
+
+        const list = document.getElementById('recent-logs-list');
+        list.innerHTML = '';
+        if (appData.logs.length === 0) {
+            list.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">暂无公狗记录</div>`;
+            return;
+        }
+        appData.logs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'bg-surface rounded-2xl p-4 border border-surface2 flex justify-between items-center shadow-md';
+            const extra = log.volumeLabel ? ` • ${log.volumeLabel}` : '';
+            item.innerHTML = `
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-bold text-fluid">${log.title}</span>
+                        ${log.brand ? `<span class="bg-surface2 text-sockYellow text-[9px] px-1.5 py-0.5 rounded-md font-semibold">${log.brand} · ${log.color}</span>` : ''}
+                    </div>
+                    <div class="text-[10px] text-gray-400 mt-1">
+                        ${log.date} • ${log.duration} • ${log.mode}${extra} • ${log.control || ''}
+                    </div>
+                    ${log.startSens ? `<div class="text-[9px] text-flesh mt-0.5">狗鸡巴敏感: ${log.startSens}/10 ➔ ${log.endSens}/10</div>` : ''}
+                </div>
+                <div class="w-8 h-8 rounded-xl bg-surface2 flex items-center justify-center text-fleshDark text-xs">
+                    <i class="fa-solid fa-check"></i>
+                </div>`;
+            list.appendChild(item);
+        });
+    }
+
+    function clearLogs() {
+        appData.logs = [];
+        persistLogs();
+        renderDashboard();
+    }
+
+    function selectConfig(type, value) {
+        appData.config[type] = value;
+        const containerMap = { brand: 'brand-chips', color: 'color-chips', targetZone: 'target-zone-chips' };
+        const container = document.getElementById(containerMap[type]);
+        if (!container) return;
+        container.querySelectorAll('.chip-btn').forEach(btn => {
+            const onclick = btn.getAttribute('onclick') || '';
+            btn.classList.toggle('selected', onclick.includes(`'${value}'`) || btn.innerText.includes(value.replace(/^(Glans Tip |Coronal Sulcus |Full Shaft )/, '')));
+        });
+    }
+
+    function updateConfigLabels() {
+        const days = document.getElementById('days-worn-slider').value;
+        const scent = document.getElementById('scent-slider').value;
+        const sens = document.getElementById('sens-rating-slider').value;
+        document.getElementById('days-worn-label').innerText = `${days} 天`;
+        document.getElementById('scent-level-label').innerText = `Level ${scent}/10`;
+        document.getElementById('sens-rating-label').innerText = `${sens}/10 (${sens > 7 ? '高敏感' : '中等'})`;
+        appData.config.daysWorn = parseInt(days, 10);
+        appData.config.scentLevel = parseInt(scent, 10);
+        appData.config.startSens = parseInt(sens, 10);
+    }
+
+    const configModal = document.getElementById('friction-config-modal');
+    function openFrictionSetup() {
+        configModal.classList.remove('hidden');
+        setTimeout(() => configModal.classList.replace('opacity-0', 'opacity-100'), 10);
+    }
+    function closeFrictionSetup() {
+        configModal.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => configModal.classList.add('hidden'), 300);
+    }
+
+    let animCanvas, animCtx;
+    let animFrameId;
+    let animStartTime = 0;
+    let currentLiveSens = 8;
+    let secondsElapsed = 0;
+    let timerInterval;
+    let totalStrokes = 0;
+    let lastStrokePhase = 0;
+
+    function initAnatomyCanvas() {
+        animCanvas = document.getElementById('anatomy-canvas');
+        animCtx = animCanvas.getContext('2d');
+        const rect = animCanvas.parentElement.getBoundingClientRect();
+        animCanvas.width = rect.width;
+        animCanvas.height = rect.height;
+    }
+
+    function drawAnatomyAndSock(timestamp) {
+        if (!animStartTime) animStartTime = timestamp;
+        const elapsedSec = (timestamp - animStartTime) / 1000;
+        const w = animCanvas.width;
+        const h = animCanvas.height;
+        animCtx.clearRect(0, 0, w, h);
+        const centerX = w / 2;
+        const basePy = h * 0.82;
+
+        animCtx.save();
+        animCtx.fillStyle = '#945345';
+        animCtx.beginPath();
+        animCtx.arc(centerX - 32, basePy + 10, 36, 0, Math.PI * 2);
+        animCtx.arc(centerX + 32, basePy + 10, 36, 0, Math.PI * 2);
+        animCtx.fill();
+        animCtx.strokeStyle = '#733B2F';
+        animCtx.lineWidth = 1.8;
+        animCtx.beginPath();
+        animCtx.arc(centerX - 32, basePy + 15, 22, 0.2, Math.PI * 0.8);
+        animCtx.arc(centerX + 32, basePy + 15, 22, 0.2, Math.PI * 0.8);
+        animCtx.stroke();
+        animCtx.restore();
+
+        const shaftWidth = 50;
+        const shaftTopY = h * 0.30;
+        const shaftHeight = basePy - shaftTopY;
+        animCtx.save();
+        let shaftGrad = animCtx.createLinearGradient(centerX - shaftWidth / 2, 0, centerX + shaftWidth / 2, 0);
+        shaftGrad.addColorStop(0, '#B06455');
+        shaftGrad.addColorStop(0.3, '#D68574');
+        shaftGrad.addColorStop(0.7, '#E09282');
+        shaftGrad.addColorStop(1, '#9E5547');
+        animCtx.fillStyle = shaftGrad;
+        animCtx.fillRect(centerX - shaftWidth / 2, shaftTopY, shaftWidth, shaftHeight);
+        animCtx.strokeStyle = 'rgba(110, 35, 45, 0.3)';
+        animCtx.lineWidth = 3;
+        animCtx.beginPath();
+        animCtx.moveTo(centerX - 6, basePy - 10);
+        animCtx.bezierCurveTo(centerX - 12, basePy - 50, centerX + 6, shaftTopY + 50, centerX - 4, shaftTopY + 12);
+        animCtx.stroke();
+        animCtx.restore();
+
+        const glansHeight = 52;
+        const glansTopY = shaftTopY - glansHeight;
+        animCtx.save();
+        animCtx.fillStyle = '#BF6B5C';
+        animCtx.beginPath();
+        animCtx.ellipse(centerX, shaftTopY + 2, shaftWidth / 2 + 6, 9, 0, 0, Math.PI * 2);
+        animCtx.fill();
+        let glansGrad = animCtx.createRadialGradient(centerX - 8, glansTopY + 18, 4, centerX, glansTopY + 22, 40);
+        glansGrad.addColorStop(0, '#FFA291');
+        glansGrad.addColorStop(0.7, '#CE7363');
+        glansGrad.addColorStop(1, '#96483A');
+        animCtx.fillStyle = glansGrad;
+        animCtx.beginPath();
+        animCtx.moveTo(centerX - shaftWidth / 2 - 5, shaftTopY);
+        animCtx.bezierCurveTo(centerX - shaftWidth / 2 - 7, shaftTopY - 22, centerX - 16, glansTopY, centerX, glansTopY);
+        animCtx.bezierCurveTo(centerX + 16, glansTopY, centerX + shaftWidth / 2 + 7, shaftTopY - 22, centerX + shaftWidth / 2 + 5, shaftTopY);
+        animCtx.closePath();
+        animCtx.fill();
+        animCtx.strokeStyle = '#752E23';
+        animCtx.lineWidth = 2.2;
+        animCtx.beginPath();
+        animCtx.moveTo(centerX, glansTopY + 8);
+        animCtx.lineTo(centerX, glansTopY + 20);
+        animCtx.stroke();
+        animCtx.restore();
+
+        const bpm = appData.config.bpm;
+        const freq = bpm / 60;
+        const strokePhase = (Math.sin(2 * Math.PI * freq * elapsedSec) + 1) / 2;
+        if (lastStrokePhase < 0.9 && strokePhase >= 0.9) {
+            totalStrokes++;
+            document.getElementById('hud-stroke-counter').innerText = totalStrokes;
+        }
+        lastStrokePhase = strokePhase;
+
+        let minY = glansTopY - 10;
+        let maxY = shaftTopY + 70;
+        if (appData.config.targetZone.includes('Glans') || appData.config.targetZone.includes('龟头')) {
+            minY = glansTopY - 15;
+            maxY = shaftTopY + 10;
+        } else if (appData.config.targetZone.includes('Coronal') || appData.config.targetZone.includes('冠状')) {
+            minY = glansTopY + 8;
+            maxY = shaftTopY + 40;
+        }
+        const currentSockY = minY + strokePhase * (maxY - minY);
+        drawSockGraphic(animCtx, centerX, currentSockY, appData.config.color, appData.config.brand, appData.config.daysWorn);
+        animFrameId = requestAnimationFrame(drawAnatomyAndSock);
+    }
+
+    function drawSockGraphic(ctx, centerX, sockY, colorStr, brandStr, days) {
+        ctx.save();
+        const sockW = 76;
+        const sockH = 95;
+        let isElite = colorStr.includes('精英') || brandStr.includes('Elite') || !colorStr.includes('黑');
+        let cuffColor = '#E8E3D5';
+        let ribColor = '#C2B8A3';
+        if (colorStr.includes('黑')) {
+            cuffColor = '#2A2A2D';
+            ribColor = '#171718';
+            isElite = false;
+        }
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 6;
+        let bodyGrad = ctx.createLinearGradient(centerX - sockW / 2, 0, centerX + sockW / 2, 0);
+        if (!colorStr.includes('黑')) {
+            bodyGrad.addColorStop(0, '#C8BFAC');
+            bodyGrad.addColorStop(0.25, '#E5E0D2');
+            bodyGrad.addColorStop(0.75, '#EDE8DC');
+            bodyGrad.addColorStop(1, '#BBB09B');
+        } else {
+            bodyGrad.addColorStop(0, '#19191B');
+            bodyGrad.addColorStop(0.5, '#2D2D31');
+            bodyGrad.addColorStop(1, '#151517');
+        }
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.roundRect(centerX - sockW / 2, sockY, sockW, sockH, [18, 18, 14, 14]);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+
+        ctx.fillStyle = cuffColor;
+        ctx.beginPath();
+        ctx.roundRect(centerX - sockW / 2 - 3, sockY - 6, sockW + 6, 18, [8, 8, 4, 4]);
+        ctx.fill();
+        ctx.strokeStyle = ribColor;
+        ctx.lineWidth = 1.5;
+        for (let cX = centerX - sockW / 2 + 2; cX <= centerX + sockW / 2 - 2; cX += 4) {
+            ctx.beginPath();
+            ctx.moveTo(cX, sockY - 5);
+            ctx.lineTo(cX, sockY + 10);
+            ctx.stroke();
+        }
+
+        if (isElite) {
+            ctx.fillStyle = '#222224';
+            ctx.fillRect(centerX - sockW / 2, sockY + 42, sockW, 14);
+            ctx.fillStyle = '#1A1A1A';
+            ctx.beginPath();
+            ctx.roundRect(centerX + sockW / 2 - 10, sockY + 12, 8, 28, 4);
+            ctx.fill();
+        }
+
+        if (brandStr.includes('Nike') || isElite) {
+            ctx.fillStyle = '#111111';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 12, sockY + 28);
+            ctx.quadraticCurveTo(centerX - 2, sockY + 34, centerX + 14, sockY + 20);
+            ctx.quadraticCurveTo(centerX + 3, sockY + 33, centerX - 12, sockY + 28);
+            ctx.fill();
+        }
+
+        if (days >= 1 || isElite) {
+            let stainGrad = ctx.createRadialGradient(centerX, sockY + 30, 4, centerX + 2, sockY + 32, 28);
+            stainGrad.addColorStop(0, `rgba(180, 145, 60, ${0.18 + days * 0.06})`);
+            stainGrad.addColorStop(1, 'rgba(160, 130, 50, 0)');
+            ctx.fillStyle = stainGrad;
+            ctx.beginPath();
+            ctx.ellipse(centerX + 2, sockY + 32, 24, 18, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    const activeOverlay = document.getElementById('friction-active-overlay');
+
+    function startFrictionSession() {
+        closeFrictionSetup();
+        setTimeout(() => {
+            activeOverlay.classList.remove('hidden');
+            setTimeout(() => activeOverlay.classList.replace('opacity-0', 'opacity-100'), 10);
+            document.getElementById('hud-sock-info').innerText = `${appData.config.brand} ${appData.config.color}`;
+            currentLiveSens = appData.config.startSens;
+            document.getElementById('hud-live-sens-num').innerText = `${currentLiveSens}/10`;
+            totalStrokes = 0;
+            document.getElementById('hud-stroke-counter').innerText = '0';
+            initAnatomyCanvas();
+            animStartTime = 0;
+            cancelAnimationFrame(animFrameId);
+            animFrameId = requestAnimationFrame(drawAnatomyAndSock);
+            secondsElapsed = 0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                const secs = String(secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('hud-timer').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }, 300);
+    }
+
+    function updateFrictionTempo() {
+        const bpm = parseInt(document.getElementById('friction-bpm-slider').value, 10);
+        appData.config.bpm = bpm;
+        document.getElementById('hud-bpm-badge').innerText = `${bpm} BPM`;
+        let speedText = '中速';
+        if (bpm < 60) speedText = '慢速抚摸';
+        else if (bpm > 120) speedText = '高频脱敏';
+        document.getElementById('hud-bpm-text').innerText = `${bpm} BPM (${speedText})`;
+    }
+
+    function adjustLiveSens(delta) {
+        currentLiveSens = Math.max(1, Math.min(10, currentLiveSens + delta));
+        document.getElementById('hud-live-sens-num').innerText = `${currentLiveSens}/10`;
+    }
+
+    function abortSession() {
+        cancelAnimationFrame(animFrameId);
+        clearInterval(timerInterval);
+        activeOverlay.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => activeOverlay.classList.add('hidden'), 300);
+    }
+
+    function completeFrictionSession(didRelease = false) {
+        cancelAnimationFrame(animFrameId);
+        clearInterval(timerInterval);
+        const mins = Math.max(1, Math.round(secondsElapsed / 60) || 1);
+        appData.logs.unshift({
+            id: Date.now(),
+            title: didRelease ? '喷射狗精 · 脏袜摩擦' : '脏袜摩擦狗鸡巴',
+            ts: Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            duration: `${mins} mins`,
+            brand: appData.config.brand,
+            color: appData.config.color,
+            startSens: appData.config.startSens,
+            endSens: currentLiveSens,
+            mode: '脏袜摩擦狗鸡巴',
+            control: currentLiveSens <= 5 ? '高掌控' : '一般',
+            volumeLabel: didRelease ? volumeFromMatrix() : undefined
+        });
+        persistLogs();
+        renderDashboard();
+        activeOverlay.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => {
+            activeOverlay.classList.add('hidden');
+            goTab('tab-dashboard');
+        }, 300);
+    }
+
+    function triggerFrictionRelease() {
+        const appRect = document.querySelector('.app-container').getBoundingClientRect();
+        triggerBurst(appRect.width / 2, appRect.height / 2, 220);
+        setTimeout(() => completeFrictionSession(true), 2000);
+    }
+
+    document.querySelectorAll('#log-method-chips .chip-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            appData.selectedMethod = btn.dataset.method;
+            document.querySelectorAll('#log-method-chips .chip-btn').forEach(b => b.classList.toggle('selected', b === btn));
+        });
+    });
+    document.querySelectorAll('#control-dots .control-dot').forEach(btn => {
+        btn.addEventListener('click', () => {
+            appData.selectedControl = btn.dataset.control;
+            document.querySelectorAll('#control-dots .control-dot').forEach(b => b.classList.toggle('selected', b === btn));
+        });
+    });
+
+    const touchpad = document.getElementById('matrix-touchpad');
+    const handle = document.getElementById('matrix-handle');
+    let isDraggingMatrix = false;
+
+    function updateMatrixPos(e) {
+        const rect = touchpad.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+        appData.matrix = { x, y };
+        handle.style.left = `${x * 100}%`;
+        handle.style.top = `${y * 100}%`;
+        document.getElementById('matrix-status-text').innerText = `${volumeFromMatrix()} • ${appearanceFromMatrix()}`;
+    }
+    touchpad.addEventListener('mousedown', (e) => { isDraggingMatrix = true; updateMatrixPos(e); });
+    window.addEventListener('mousemove', (e) => { if (isDraggingMatrix) updateMatrixPos(e); });
+    window.addEventListener('mouseup', () => { isDraggingMatrix = false; });
+    touchpad.addEventListener('touchstart', (e) => { isDraggingMatrix = true; updateMatrixPos(e); }, { passive: true });
+    window.addEventListener('touchmove', (e) => { if (isDraggingMatrix) updateMatrixPos(e); }, { passive: true });
+    window.addEventListener('touchend', () => { isDraggingMatrix = false; });
+
+    const arousalSlider = document.getElementById('arousal-slider');
+    arousalSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('arousal-val').innerText = val + '%';
+        document.getElementById('visualizer-fluid').style.height = val + '%';
+    });
+    document.getElementById('duration-slider').addEventListener('input', (e) => {
+        document.getElementById('duration-val').innerText = e.target.value + ' min';
+    });
+
+    function triggerLogRelease() {
+        const rect = document.getElementById('visualizer-capsule').getBoundingClientRect();
+        const appRect = document.querySelector('.app-container').getBoundingClientRect();
+        triggerBurst((rect.left - appRect.left) + rect.width / 2, (rect.top - appRect.top) + 20, 160);
+        const mins = document.getElementById('duration-slider').value;
+        setTimeout(() => {
+            appData.logs.unshift({
+                id: Date.now(),
+                title: '喷射狗精 & 存档',
+                ts: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                duration: `${mins} mins`,
+                mode: appData.selectedMethod,
+                control: appData.selectedControl,
+                volumeLabel: volumeFromMatrix(),
+                appearance: appearanceFromMatrix(),
+                arousal: parseInt(arousalSlider.value, 10)
+            });
+            persistLogs();
+            renderDashboard();
+            goTab('tab-dashboard');
+        }, 1200);
+    }
+
+    function unlockVault() {
+        const lock = document.getElementById('vault-lock');
+        lock.querySelector('p').innerText = '识别中…';
+        setTimeout(() => {
+            lock.style.display = 'none';
+            document.querySelectorAll('.vault-card').forEach(c => c.classList.add('unlocked'));
+            appData.isVaultUnlocked = true;
+        }, 1500);
+    }
+    function lockVault() {
+        document.getElementById('vault-lock').style.display = 'flex';
+        document.getElementById('vault-lock').querySelector('p').innerText = '识别贱狗面容以解锁主人的私密图库…';
+        document.querySelectorAll('.vault-card').forEach(c => c.classList.remove('unlocked'));
+        appData.isVaultUnlocked = false;
+    }
+
+    const scentModal = document.getElementById('scent-modal');
+    function openScentModal() { scentModal.classList.remove('hidden'); scentModal.classList.add('flex'); }
+    function closeScentModal() { scentModal.classList.add('hidden'); scentModal.classList.remove('flex'); }
+    function saveScentSession() {
+        appData.logs.unshift({
+            id: Date.now(),
+            title: '闻袜射狗精',
+            ts: Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            duration: '6 mins',
+            mode: '闻袜射狗精',
+            control: '一般'
+        });
+        persistLogs();
+        renderDashboard();
+        closeScentModal();
+        goTab('tab-dashboard');
+    }
+
+    const squirtModal = document.getElementById('squirt-modal');
+    function openSquirtModal() { squirtModal.classList.remove('hidden'); squirtModal.classList.add('flex'); }
+    function closeSquirtModal() { squirtModal.classList.add('hidden'); squirtModal.classList.remove('flex'); }
+    document.querySelectorAll('.squirt-check').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const on = btn.dataset.on === '1';
+            btn.dataset.on = on ? '0' : '1';
+            const dot = btn.querySelector('.status-dot');
+            if (btn.querySelector('.warn') || dot.classList.contains('warn')) {
+                dot.classList.toggle('warn', !on);
+                dot.classList.toggle('off', on);
+            } else {
+                dot.classList.toggle('off', on);
+            }
+        });
+    });
+    function triggerBrake() {
+        const btn = document.getElementById('breathe-brake-btn');
+        btn.innerText = '已刹车：公狗深呼吸中…';
+        btn.style.color = '#5c8c5f';
+        btn.style.borderColor = '#5c8c5f';
+        btn.style.background = 'rgba(92, 140, 95, 0.2)';
+        setTimeout(() => {
+            btn.innerText = '紧急刹车！深呼吸保持公狗内松外硬';
+            btn.style.color = '#d94545';
+            btn.style.borderColor = '#d94545';
+            btn.style.background = 'rgba(217, 69, 69, 0.1)';
+        }, 3000);
+    }
+    function saveSquirtSession() {
+        const appRect = document.querySelector('.app-container').getBoundingClientRect();
+        triggerBurst(appRect.width / 2, appRect.height / 2, 180);
+        appData.logs.unshift({
+            id: Date.now(),
+            title: '公狗潮吹',
+            ts: Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            duration: '10 mins',
+            mode: '公狗潮吹',
+            control: '高掌控',
+            volumeLabel: '公狗洪流',
+            appearance: '清水透明'
+        });
+        persistLogs();
+        renderDashboard();
+        setTimeout(() => {
+            closeSquirtModal();
+            goTab('tab-dashboard');
+        }, 900);
+    }
+
+    const fxCanvas = document.getElementById('fx-canvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    let particles = [];
+    let isParticleAnimating = false;
+
+    function resizeFxCanvas() {
+        fxCanvas.width = fxCanvas.parentElement.clientWidth;
+        fxCanvas.height = fxCanvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeFxCanvas);
+    resizeFxCanvas();
+
+    class Particle {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 14;
+            this.vy = (Math.random() * -20) - 4;
+            this.gravity = 0.5;
+            this.radius = Math.random() * 5 + 2;
+            this.alpha = 1;
+        }
+        update() {
+            this.vy += this.gravity;
+            this.x += this.vx;
+            this.y += this.vy;
+            this.alpha -= 0.014;
+        }
+        draw(ctx) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(244, 239, 234, ${Math.max(0, this.alpha)})`;
+            ctx.fill();
+        }
+    }
+
+    function triggerBurst(x, y, count = 180) {
+        for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
+        if (!isParticleAnimating) {
+            isParticleAnimating = true;
+            animateParticles();
+        }
+    }
+
+    function animateParticles() {
+        fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.update();
+            p.draw(fxCtx);
+            if (p.alpha <= 0 || p.y > fxCanvas.height + 40) particles.splice(i, 1);
+        }
+        if (particles.length > 0) requestAnimationFrame(animateParticles);
+        else { isParticleAnimating = false; fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height); }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        closeFrictionSetup();
+        abortSession();
+        closeScentModal();
+        closeSquirtModal();
+    });
+
+    pruneIfNeeded();
+    applyHeader();
+    renderDashboard();
+</script>
+</body>
+</html>
